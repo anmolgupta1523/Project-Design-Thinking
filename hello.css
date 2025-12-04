@@ -1,0 +1,57 @@
+async function analyzeFood() {
+        clearStatus();
+
+        const userQuery = foodInput.value.trim();
+
+        if (!userQuery && !base64Image) {
+            displayError("Please provide an image or a description/question about the food.");
+            return;
+        }
+
+        showLoading(true);
+
+        // 1. Construct the prompt parts
+        const parts = [];
+        
+        // Add image part if available
+        if (base64Image) {
+            parts.push({
+                inlineData: {
+                    mimeType: foodImageInput.files[0].type,
+                    data: base64Image
+                }
+            });
+        }
+
+        // Add text part (using a system instruction to guide the response)
+        const systemInstruction = "You are a 'Smart Food Analyzer'. Analyze the user's input (which may include a photo and text) and provide a detailed, easy-to-read response focusing on nutritional facts, ingredients, potential allergens, and/or healthy recipe suggestions, presented in a Markdown list and paragraph format.";
+        
+        parts.push({ text: userQuery || "Analyze the image." }); // Use "Analyze the image." if only an image is provided.
+
+
+        // 2. Construct the API payload
+        const payload = {
+            contents: [{ parts: parts }],
+            tools: [{ "google_search": {} }], // Enable Google Search for grounding and up-to-date data
+            systemInstruction: {
+                parts: [{ text: systemInstruction }]
+            },
+        };
+
+        try {
+            const result = await callGeminiApi(payload);
+            const generatedText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+            if (generatedText) {
+                analysisResult.innerHTML = generatedText;
+                resultContainer.classList.remove('hidden');
+            } else {
+                throw new Error("Analysis failed: received an empty response from the AI model.");
+            }
+        } catch (error) {
+            console.error("Analysis failed:", error);
+            displayError(Error: Failed to connect or process the food analysis request. Please check your API key setup and try again. (${error.message}));
+        } finally {
+            showLoading(false);
+        }
+    }
